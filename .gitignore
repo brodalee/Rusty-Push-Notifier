@@ -1,0 +1,4 @@
+target
+.idea
+.env
+resources/google_service_account_credentials.json

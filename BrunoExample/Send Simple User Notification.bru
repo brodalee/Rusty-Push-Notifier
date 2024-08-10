@@ -1,0 +1,17 @@
+meta {
+  name: Send Simple User Notification
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:8080/users/2/notifications
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+      "notification_type": "Test"
+  }
+}

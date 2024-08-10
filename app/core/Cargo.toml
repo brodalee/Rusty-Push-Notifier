@@ -1,0 +1,14 @@
+[package]
+name = "core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = "1.0.205"
+log = "0.4.22"
+actix-web = "4.8.0"
+types = { path = "../types" }
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-native-tls", "macros", "mysql", "time"] }
+redis = "0.26.1"
+fcm = { git = "https://github.com/rj76/fcm-rust.git" }
+utoipa = { version = "4.2.0", features = ["actix_extras"] }

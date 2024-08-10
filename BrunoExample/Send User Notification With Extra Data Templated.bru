@@ -1,0 +1,20 @@
+meta {
+  name: Send User Notification With Extra Data Templated
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:8080/users/2/notifications
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+      "notification_type": "TestWithTemplate",
+      "template_data": {
+          "name": "hehehe"
+      }
+  }
+}

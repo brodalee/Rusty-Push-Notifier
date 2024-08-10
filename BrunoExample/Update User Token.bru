@@ -1,0 +1,22 @@
+meta {
+  name: Update User Token
+  type: http
+  seq: 2
+}
+
+put {
+  url: http://localhost:8080/users
+  body: json
+  auth: none
+}
+
+headers {
+  X-DEVICE-ID: 3U4H3I5UH
+  X-DEVICE-TYPE: Android
+}
+
+body:json {
+  {
+      "token": "NewSuperToken"
+  }
+}

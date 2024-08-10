@@ -1,0 +1,8 @@
+Test:
+  title: "Wow it works !"
+  body: "Did you see this nice notification ?"
+
+TestWithTemplate:
+  title: "Hi %name%"
+  body: "Welcome back %name%"
+  params: ["name"]

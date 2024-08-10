@@ -1,0 +1,17 @@
+[package]
+name = "api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+actix-web = "4.8.0"
+coi-actix-web = "0.7.1"
+dotenv = "0.15.0"
+serde = "1.0.205"
+log = "0.4.22"
+core = { path = "../core" }
+types = { path = "../types" }
+service = { path = "../service" }
+migration = { path = "../migration" }
+utoipa = { version = "4.2.0", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "7.1.0", features=["actix-web"] }
