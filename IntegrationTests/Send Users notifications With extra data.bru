@@ -1,0 +1,46 @@
+meta {
+  name: Send Users notifications With extra data
+  type: http
+  seq: 12
+}
+
+post {
+  url: http://localhost:8080/notifications/1/users
+  body: json
+  auth: none
+}
+
+body:json {
+  [
+    { 
+      "user_id": 2,
+      "params": [
+        {
+          "name": "Toto",
+          "value": "ofuhzreigfzr"
+        }
+       ],
+      "extra_data": [
+        {
+          "name": "Toto",
+          "value": "ofuhzreigfzr"
+        }
+      ]
+     },
+    {
+      "user_id": 2,
+      "params": [
+        {
+          "name": "Toto",
+          "value": "ofuhzreigfzr"
+        }
+       ],
+      "extra_data": [
+        {
+          "name": "Toto",
+          "value": "ofuhzreigfzr"
+        }
+      ]
+    }
+  ]
+}

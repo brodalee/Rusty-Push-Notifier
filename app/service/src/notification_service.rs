@@ -1,187 +1,201 @@
-use std::{
-    collections::HashMap,
-    fs
-};
-use types::{
-    string::FirebaseToken,
-    enums::DeviceType,
-};
-use crate::rows::notification_row::NotificationRow;
-use core::{
-    error::Error,
-    config::Config,
-};
-use fcm::{
-    FcmClient,
-    message::{
-        Notification,
-        AndroidConfig,
-        AndroidMessagePriority,
-        AndroidNotification,
-        ApnsConfig,
-        WebpushConfig,
-        Message,
-        Target
-    },
-};
-use serde::{Deserialize, Serialize};
+use core::error::Error;
+use repository::notification_history_repository::NotificationHistoryRepository;
+use repository::notification_repository::NotificationRepository;
+use core::models::notifications::NotificationWithParameters;
+use crate::user_service::UserService;
+use core::models::notifications::SendUserNotification;
+use crate::firebase_notification_service::FirebaseNotificationService;
+use core::models::notifications::SendUserNotificationExtraData;
+use core::models::notifications::SendUserParameter;
+use core::models::notifications::NotificationParamIdWithValue;
 
+#[derive(Clone)]
 pub struct NotificationService {
-    firebase_client: FcmClient,
+    pub notification_repository: NotificationRepository,
+    pub notification_history_repository: NotificationHistoryRepository,
+    pub user_service: UserService,
+    pub firebase_service: FirebaseNotificationService
 }
 
 impl NotificationService {
-    pub async fn new() -> Self {
+    pub fn new(
+        notification_repository: NotificationRepository,
+        notification_history_repository: NotificationHistoryRepository,
+        user_service: UserService,
+        firebase_service: FirebaseNotificationService
+    ) -> NotificationService {
         NotificationService {
-            firebase_client: FcmClient::builder()
-                .service_account_key_json_path(Config::get_google_service_account_credentials_path())
-                .build()
-                .await
-                .expect("Bad Google credentials given.")
+            notification_repository,
+            notification_history_repository,
+            user_service,
+            firebase_service,
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct NotificationInformation {
-    pub title: String,
-    pub body: String,
-    pub params: Option<Vec<String>>
-}
+impl NotificationService {
+    pub async fn create_notification(
+        &self,
+        notification: NotificationWithParameters
+    ) -> Result<String, Error> {
+        let already_exist = self
+            .notification_repository
+            .exist_by_name(String::from(notification.clone().name))
+            .await?;
 
-impl NotificationInformation {
-    pub fn parse_with_template_data(&mut self, extra_data: &Option<HashMap<String, String>>) -> &Self {
-        if extra_data.is_none() {
-            return self;
+        if already_exist {
+            return Err(Error::AlreadyExistError(format!("Notification with name '{}' already exist", String::from(notification.clone().name))));
         }
 
-        for (key, value) in extra_data.clone().unwrap() {
-            let pattern = format!("%{}%", key);
-            self.title = self.title.replace(pattern.clone().as_str(), value.as_str());
-            self.body = self.body.replace(pattern.clone().as_str(), value.as_str());
+        let id = self
+            .notification_repository
+            .create_notification(notification)
+            .await
+            .map_err(|e| Error::ProviderError(e.to_string()))?;
+
+        Ok(id)
+    }
+
+    pub async fn fetch_notifications_paginated(
+        &self,
+        offset: i32,
+        limit: i32
+    ) -> Result<Vec<NotificationWithParameters>, Error> {
+        if offset < 0 {
+            return Err(Error::ValidationError("Offset must be superior than 0".to_string()));
+        }
+
+        let notifications = self
+            .notification_repository
+            .fetch_paginated(offset * limit, limit)
+            .await?;
+
+        let mut map_notifications: Vec<NotificationWithParameters> = vec![];
+        for notification in notifications {
+            let parameters = self
+                .notification_repository
+                .fetch_notification_parameters(notification.clone().id).await?;
+
+            map_notifications.push(NotificationWithParameters {
+                id: notification.clone().id,
+                name: notification.clone().name,
+                title: notification.clone().title,
+                content: notification.clone().content,
+                parameters,
+            })
+        }
+
+        Ok(map_notifications)
+    }
+
+    pub async fn total_count(&self) -> Result<i32, Error> {
+        Ok(
+            self
+                .notification_repository
+                .total_count()
+                .await?
+        )
+    }
+
+    pub async fn send_user_notification(
+        &self,
+        notification_id: i32,
+        user_id: i32,
+        notification_input: SendUserNotification
+    ) -> Result<(), Error> {
+        let notification = self
+            .notification_repository
+            .fetch_by_id(notification_id)
+            .await?;
+
+        let user = self
+            .user_service
+            .fetch_by_id(user_id)
+            .await?;
+
+        if user.token.is_none() {
+            return Err(Error::MissingDataError("User dont have device token".to_string()))
+        }
+
+        let notification_parameters = self
+            .notification_repository
+            .fetch_notification_parameters(notification_id)
+            .await?;
+
+        let mapped_parameters: Vec<String> = notification_parameters
+            .clone()
+            .iter()
+            .map(|n| n.name.clone())
+            .collect();
+
+        let mut parameters: Vec<SendUserParameter> = vec![];
+        if notification_input.params.is_some() {
+            let params = notification_input.params.unwrap();
+            for p in params {
+                parameters.push(p.into());
+            }
+        }
+
+        let current_parameters: Vec<String> = parameters
+            .iter()
+            .map(|n| n.name.clone())
+            .collect();
+
+        if !mapped_parameters.iter().all(|np| current_parameters.contains(np)) {
+            return Err(Error::ValidationError("Missing parameters".to_string()));
+        }
+
+        let mut extra_data: Vec<SendUserNotificationExtraData> = vec![];
+        if notification_input.extra_data.is_some() {
+            let ed = notification_input.extra_data.unwrap();
+            for ned in ed {
+                extra_data.push(ned.into())
+            }
         }
 
         self
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct NotificationsRule<T = HashMap<String, NotificationInformation>>(pub T);
-
-impl NotificationsRule<HashMap<String, NotificationInformation>> {
-    pub fn get_by_key(&mut self, key: &str) -> Option<&NotificationInformation> {
-        self.0.get(key)
-    }
-}
-
-impl NotificationService {
-    pub async fn send_notification(
-        &mut self,
-        device_token: &FirebaseToken,
-        device_type: &DeviceType,
-        notification_row: &NotificationRow,
-    ) -> Result<(), Error> {
-        let message = self.get_message(device_token, device_type, notification_row)?;
-        let response = self.firebase_client.send(message).await;
-
-        match response {
-            Ok(_) => Ok(()),
-            Err(err) => Err(Error::ProviderError(err.to_string()))
-        }
-    }
-}
-
-impl NotificationService {
-    fn get_message(
-        &mut self,
-        device_token: &FirebaseToken,
-        device_type: &DeviceType,
-        notification_row: &NotificationRow,
-    ) -> Result<Message, Error> {
-
-        let notification_information: Option<NotificationInformation> = self.get_notification_information_by_key(
-            notification_row.notification_type.as_str()
-        )?;
-
-        if notification_information.is_none() {
-            return Err(
-                Error::MissingDataError(
-                    format!(
-                        "Missing key for notifications: {}",
-                        notification_row.notification_type.as_str()
-                    )
-                )
+            .firebase_service
+            .send_notification(
+                user.device_type,
+                user.token.unwrap(),
+                notification.clone(),
+                parameters.clone(),
+                extra_data.clone()
             )
+            .await?;
+
+        let mut mapped_params: Vec<NotificationParamIdWithValue> = vec![];
+        for params in parameters.clone() {
+            for nparam in notification_parameters.clone() {
+                if params.name == nparam.name {
+                    mapped_params.push(NotificationParamIdWithValue {
+                        id: nparam.id,
+                        value: params.clone().value
+                    });
+                    break;
+                }
+            }
         }
 
-        let extra_data = if notification_row.extra_data.is_none() { None } else {
-            let hm: HashMap<String, String> = serde_json::from_str(&notification_row.clone().extra_data.unwrap()).unwrap();
-            Some(serde_json::to_value::<HashMap<String, String>>(hm).unwrap())
-        };
-        let template_data = if notification_row.template_data.is_none() { None } else { Some(serde_json::from_str::<HashMap<String, String>>(&notification_row.clone().template_data.unwrap()).unwrap()) };
+        self
+            .notification_history_repository
+            .create_sent(
+                notification.clone(),
+                mapped_params,
+                extra_data.clone(),
+                user.id
+            )
+            .await?;
 
-        let info = notification_information.unwrap().parse_with_template_data(&template_data).clone();
-        let notification = Some(Notification {
-            title: Some(info.clone().title),
-            body: Some(info.clone().body),
-            ..Default::default()
-        });
+        // TODO : il faudrat voir pour que le créateur de la notif
+        //  puisse envoyer le type de priorité ( Hight, Medium .. )
 
-        if device_type.to_string() == DeviceType::Android.to_string() {
-            return Ok(Message {
-                data: extra_data.clone(),
-                notification,
-                android: Some(AndroidConfig {
-                    data: extra_data.clone(),
-                    priority: Some(AndroidMessagePriority::High),
-                    notification: Some(AndroidNotification {
-                        title: Some(info.clone().title),
-                        body: Some(info.clone().body),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                }),
-                webpush: None,
-                apns: None,
-                fcm_options: None,
-                target: Target::Token(device_token.into()),
-            });
-        }
-        
-        if device_type.to_string() == DeviceType::IOS.to_string() {
-            return Ok(Message {
-                data: extra_data.clone(),
-                notification,
-                android: None,
-                webpush: None,
-                apns: Some(ApnsConfig {
-                    payload: extra_data.clone(),
-                    ..Default::default()
-                }),
-                fcm_options: None,
-                target: Target::Token(device_token.into()),
-            });
-        }
-
-        Ok(Message {
-            data: None,
-            notification,
-            android: None,
-            webpush: Some(WebpushConfig {
-                data: extra_data.clone(),
-                ..Default::default()
-            }),
-            apns: None,
-            fcm_options: None,
-            target: Target::Token(device_token.into()),
-        })
+        // TODO : si on arrive pas à enregistrer, il
+        //  faudrait proposer un fallback en mode "retry_later_on_fail": true/false
+        Ok(())
     }
+}
 
-    fn get_notification_information_by_key(&mut self, key: &str) -> Result<Option<NotificationInformation>, Error> {
-        let contents = fs::read_to_string(Config::get_notification_resources_path())
-            .expect("Could not read file");
+impl NotificationService {
 
-        let mut content: NotificationsRule = serde_yaml::from_str::<NotificationsRule>(&contents).unwrap();
-        Ok(content.get_by_key(key).cloned())
-    }
 }

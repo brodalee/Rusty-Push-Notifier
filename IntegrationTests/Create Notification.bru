@@ -1,0 +1,20 @@
+meta {
+  name: Create Notification
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:8080/notifications
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "firstnotificationX",
+    "title": "Hello",
+    "content": "World",
+    "parameters": []
+  }
+}

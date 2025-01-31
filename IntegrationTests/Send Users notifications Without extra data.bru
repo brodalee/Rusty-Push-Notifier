@@ -1,0 +1,34 @@
+meta {
+  name: Send Users notifications Without extra data
+  type: http
+  seq: 9
+}
+
+post {
+  url: http://localhost:8080/notifications/1/users
+  body: json
+  auth: none
+}
+
+body:json {
+  [
+    { 
+      "user_id": 2,
+      "params": [
+        {
+          "name": "Toto",
+          "value": "ofuhzreigfzr"
+        }
+       ]
+     },
+    {
+      "user_id": 2,
+      "params": [
+        {
+          "name": "Toto",
+          "value": "ofuhzreigfzr"
+        }
+       ]
+    }
+  ]
+}

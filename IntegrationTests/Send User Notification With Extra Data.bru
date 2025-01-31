@@ -1,0 +1,32 @@
+meta {
+  name: Send User Notification With Extra Data
+  type: http
+  seq: 11
+}
+
+post {
+  url: http://localhost:8080/notifications/15/users/2
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+      "params": [
+        {
+          "name": "%name",
+          "value": "Test"
+        }
+      ],
+      "extra_data": [
+        {
+          "name": "mydata",
+          "value": "fornzgf"
+        },
+        {
+          "name": "Siuuuue",
+          "value": "fornzgf"
+        }
+      ]
+  }
+}

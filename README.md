@@ -28,29 +28,18 @@ To simply run the app :
 cargo run
 ```
 
-To start the consumer :
-```bash
-cargo run --package command --bin command
-# OR simply
-cargo run # in command folder
-```
-
 ## Api DOC
 
 A swagger is delivered at `http://localhost:8080/swagger/`
 
-## Bruno Example
+## Bruno Integration Tests
 
 To look on requests example, open Bruno app, and open folder `BrunoExample`.
 
 ## Things to improve project
 
-- Implement RabbitMq / Kafka to consume messages and make choice between them and redis.
 - The Code / Typing
 - Add some unit / integration tests
 - ...
 
-## How it works
-Could works too with RabbitMQ or Kafka.
-
-<img src="./doc/img/how_it_works.png">
+# Swagger Preview

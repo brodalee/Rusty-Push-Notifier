@@ -1,3 +1,5 @@
+use api::api::start_api;
+
 fn main() -> std::io::Result<()> {
-    api::main()
+    start_api()
 }

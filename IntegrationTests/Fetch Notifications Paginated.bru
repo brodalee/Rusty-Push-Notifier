@@ -1,0 +1,16 @@
+meta {
+  name: Fetch Notifications Paginated
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:8080/notifications?page=1&limit=100
+  body: none
+  auth: none
+}
+
+query {
+  page: 1
+  limit: 100
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Send User Notification Without Extra Data
+  type: http
+  seq: 8
+}
+
+post {
+  url: http://localhost:8080/notifications/15/users/2
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+      "params": [
+        {
+          "name": "%name",
+          "value": "Test"
+        }
+      ]
+  }
+}

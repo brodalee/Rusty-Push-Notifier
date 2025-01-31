@@ -1,7 +1,5 @@
-version: '3.8'
-
+---
 volumes:
-  redisdata:
   mysqldata:
 
 networks:
@@ -21,13 +19,5 @@ services:
       MYSQL_DATABASE: "api"
       MYSQL_USER: "user_name2U34NBOUI4B"
       MYSQL_PASSWORD: "user_passbnIU3B4I4"
-
-  redis:
-    image: redis:alpine3.20
-    container_name: app_redis
-    ports:
-      - 6379:6379
-    volumes:
-      - redisdata:/data
     networks:
       - default

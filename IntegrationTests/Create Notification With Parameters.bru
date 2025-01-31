@@ -1,0 +1,24 @@
+meta {
+  name: Create Notification With Parameters
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:8080/notifications
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "firstnotzification",
+    "title": "Hello %name%",
+    "content": "World",
+    "parameters": [
+      {
+        "name": "%name"
+      }
+    ]
+  }
+}
